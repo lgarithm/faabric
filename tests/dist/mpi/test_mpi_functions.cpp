@@ -9,6 +9,20 @@
 
 namespace tests {
 
+TEST_CASE_METHOD(MpiDistTestsFixture, "lg benchmark", "[.][mpi]")
+{
+    // Set up this host's resources
+    setLocalSlots(nLocalSlots);
+    // auto req = setRequest("alltoall");
+    auto req = setRequest("lg-benchmark");
+
+    // Call the functions
+    plannerCli.callFunctions(req);
+
+    checkAllocationAndResult(req);
+}
+
+
 TEST_CASE_METHOD(MpiDistTestsFixture, "Test MPI all gather", "[mpi]")
 {
     // Set up this host's resources

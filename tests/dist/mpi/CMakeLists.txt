@@ -20,6 +20,7 @@ set(ALL_MPI_EXAMPLES
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_gather.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_helloworld.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_isendrecv.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_lg_benchmark.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_migration.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_order.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_reduce.cpp
