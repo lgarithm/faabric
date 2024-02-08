@@ -1,19 +1,19 @@
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <numeric>
 #include <ranges>
 #include <string>
 #include <vector>
 
-// #include <mpi.h>
-
+#ifdef USE_REAL_MPI
+#include <mpi.h>
+#else
+#include "mpi/mpi_native.h"
 #include <faabric/mpi/mpi.h>
 #include <faabric/util/logging.h>
 #include <faabric/util/macros.h>
-
-#include "mpi/mpi_native.h"
-
-#include <chrono>
+#endif
 
 using CLOCK = std::chrono::high_resolution_clock;
 using duration = std::chrono::duration<double>;
@@ -79,15 +79,11 @@ std::string show_rate(int64_t workload, duration d)
     return buf;
 }
 
-#define RANGE(x) x.begin(), x.end()
-
 template<class T>
 void init_buf(std::vector<T>& x, std::vector<T>& y, T rank)
 {
-    // std::ranges::fill(x, rank);
-    // std::ranges::fill(y, 0);
-    std::fill(RANGE(x), rank);
-    std::fill(RANGE(y), 0);
+    std::ranges::fill(x, rank);
+    std::ranges::fill(y, 0);
 }
 
 static int bench_all_reduce(int rank,
@@ -107,7 +103,7 @@ static int bench_all_reduce(int rank,
     auto t1 = CLOCK::now();
     duration d = t1 - t0;
 
-    int tot = std::accumulate(RANGE(sizes), 0);
+    int tot = std::accumulate(sizes.begin(), sizes.end(), 0);
     int64_t workload = 4 * (worldSize - 1) * sizeof(T) * tot;
 
     if (rank == 0) {
