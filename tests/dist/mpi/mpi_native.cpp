@@ -52,7 +52,6 @@ int terminateMpi()
 int MPI_Init(int* argc, char*** argv)
 {
     faabric::Message* call = getExecutingCall();
-    SPDLOG_WARN("Hello lg");
     if (call->mpirank() <= 0) {
         // If we are rank 0 and the world already exists, it means we are being
         // migrated

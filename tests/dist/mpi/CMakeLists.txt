@@ -8,6 +8,7 @@ target_link_libraries(faabric_dist_tests_mpinative_lib PUBLIC faabric::test_util
 
 # Second we set all the source files for the dist tests library
 set(ALL_MPI_EXAMPLES
+    ${CMAKE_CURRENT_LIST_DIR}/benchmarks/mpi_allreduce.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_allgather.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_allreduce.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_alltoall.cpp
@@ -20,7 +21,6 @@ set(ALL_MPI_EXAMPLES
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_gather.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_helloworld.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_isendrecv.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_lg_benchmark.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_migration.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_order.cpp
     ${CMAKE_CURRENT_LIST_DIR}/examples/mpi_reduce.cpp

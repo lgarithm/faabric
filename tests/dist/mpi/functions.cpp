@@ -13,14 +13,14 @@ namespace tests {
 
 std::atomic<faabric::Message*> tests::mpi::executingCall;
 
-int handleMpiLgBenchmark(tests::DistTestExecutor* exec,
-                       int threadPoolIdx,
-                       int msgIdx,
-                       std::shared_ptr<faabric::BatchExecuteRequest> req)
+int handleMpiBenchAllReduce(tests::DistTestExecutor* exec,
+                            int threadPoolIdx,
+                            int msgIdx,
+                            std::shared_ptr<faabric::BatchExecuteRequest> req)
 {
     executingCall = &req->mutable_messages()->at(msgIdx);
 
-    return lg_benchmark();
+    return bench_allreduce();
 }
 
 int handleMpiAllGather(tests::DistTestExecutor* exec,
@@ -265,7 +265,8 @@ int handleMpiTypeSize(tests::DistTestExecutor* exec,
 
 void registerMpiTestFunctions()
 {
-    registerDistTestExecutorCallback("mpi", "lg-benchmark", handleMpiLgBenchmark);
+    registerDistTestExecutorCallback(
+      "mpi", "bench-allreduce", handleMpiBenchAllReduce);
     registerDistTestExecutorCallback("mpi", "allgather", handleMpiAllGather);
     registerDistTestExecutorCallback("mpi", "allreduce", handleMpiAllReduce);
     registerDistTestExecutorCallback("mpi", "alltoall", handleMpiAllToAll);
