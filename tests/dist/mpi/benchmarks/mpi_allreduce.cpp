@@ -18,9 +18,16 @@
 using CLOCK = std::chrono::high_resolution_clock;
 using duration = std::chrono::duration<double>;
 
-constexpr int64_t Ki = 1 << 20;
+constexpr int64_t Ki = 1 << 10;
 constexpr int64_t Mi = 1 << 20;
 constexpr int64_t Gi = 1 << 30;
+
+std::vector<int> small_sizes()
+{
+    std::vector<int> x(100);
+    std::ranges::fill(x, 8);
+    return x;
+}
 
 std::vector<int> resnet50_grad_sizes()
 {
@@ -147,8 +154,10 @@ int bench_allreduce()
     //     ret = bench_all_reduce(rank, worldSize, {n});
     // }
 
+    // auto sizes = resnet50_grad_sizes();
+    auto sizes = small_sizes();
     for (int i = 0; i < 10; ++i) {
-        ret = bench_all_reduce(rank, worldSize, resnet50_grad_sizes());
+        ret = bench_all_reduce(rank, worldSize, sizes);
     }
 
     MPI_Finalize();

@@ -19,6 +19,7 @@ faabric_lib(util
     locks.cpp
     logging.cpp
     memory.cpp
+    mem_pool.cpp
     network.cpp
     ptp.cpp
     queue.cpp
