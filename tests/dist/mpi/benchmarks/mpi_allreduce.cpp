@@ -13,6 +13,7 @@
 #include <faabric/mpi/mpi.h>
 #include <faabric/util/logging.h>
 #include <faabric/util/macros.h>
+#include <faabric/util/trace.h>
 #endif
 
 using CLOCK = std::chrono::high_resolution_clock;
@@ -24,7 +25,7 @@ constexpr int64_t Gi = 1 << 30;
 
 std::vector<int> small_sizes()
 {
-    std::vector<int> x(100);
+    std::vector<int> x(10000);
     std::ranges::fill(x, 8);
     return x;
 }
@@ -97,6 +98,7 @@ static int bench_all_reduce(int rank,
                             int worldSize,
                             std::vector<int> sizes = {})
 {
+    TRACE_SCOPE(__func__);
     using T = int;
     auto dt = MPI_INT;
 
@@ -105,7 +107,10 @@ static int bench_all_reduce(int rank,
         std::vector<T> x(n);
         std::vector<T> y(n);
         init_buf(x, y, rank);
-        MPI_Allreduce(x.data(), y.data(), n, dt, MPI_SUM, MPI_COMM_WORLD);
+        {
+            TRACE_SCOPE("MPI_Allreduce");
+            MPI_Allreduce(x.data(), y.data(), n, dt, MPI_SUM, MPI_COMM_WORLD);
+        }
     }
     auto t1 = CLOCK::now();
     duration d = t1 - t0;
@@ -127,6 +132,7 @@ static int bench_all_reduce(int rank,
 
 int bench_allreduce()
 {
+    TRACE_SCOPE(__func__);
     const std::string h40(40, '=');
 
     MPI_Init(NULL, NULL);

@@ -10,6 +10,7 @@
 #include <faabric/util/macros.h>
 #include <faabric/util/mem_pool.h>
 #include <faabric/util/testing.h>
+#include <faabric/util/trace.h>
 
 // Each MPI rank runs in a separate thread, thus we use TLS to maintain the
 // per-rank data structures
@@ -491,6 +492,7 @@ void MpiWorld::send(int sendRank,
                     int count,
                     MPIMessage::MPIMessageType messageType)
 {
+    TRACE_SCOPE(__func__);
     // Sanity-check input parameters
     checkRanksRange(sendRank, recvRank);
     if (getHostForRank(sendRank) != thisHost) {
@@ -575,6 +577,7 @@ void MpiWorld::recv(int sendRank,
                     MPI_Status* status,
                     MPIMessage::MPIMessageType messageType)
 {
+    TRACE_SCOPE(__func__);
     // Sanity-check input parameters
     checkRanksRange(sendRank, recvRank);
 
@@ -597,6 +600,7 @@ void MpiWorld::doRecv(std::shared_ptr<MPIMessage>& m,
                       MPI_Status* status,
                       MPIMessage::MPIMessageType messageType)
 {
+    TRACE_SCOPE(__func__);
     // Assert message integrity
     // Note - this checks won't happen in Release builds
     if (m->messagetype() != messageType) {
@@ -684,6 +688,7 @@ void MpiWorld::broadcast(int sendRank,
                          int count,
                          MPIMessage::MPIMessageType messageType)
 {
+    TRACE_SCOPE(__func__);
     SPDLOG_TRACE("MPI - bcast {} -> {}", sendRank, recvRank);
 
     if (recvRank == sendRank) {
@@ -1061,6 +1066,7 @@ void MpiWorld::reduce(int sendRank,
                       int count,
                       faabric_op_t* operation)
 {
+    TRACE_SCOPE(__func__);
     size_t bufferSize = datatype->size * count;
     auto rankData = std::make_unique<uint8_t[]>(bufferSize);
 
@@ -1184,6 +1190,7 @@ void MpiWorld::allReduce(int rank,
                          int count,
                          faabric_op_t* operation)
 {
+    TRACE_SCOPE(__func__);
     // Rank 0 coordinates the allreduce operation
     // First, all ranks reduce to rank 0
     reduce(rank, 0, sendBuffer, recvBuffer, datatype, count, operation);
@@ -1479,6 +1486,7 @@ std::shared_ptr<MPIMessage> MpiWorld::recvBatchReturnLast(int sendRank,
                                                           int recvRank,
                                                           int batchSize)
 {
+    TRACE_SCOPE(__func__);
     std::shared_ptr<MpiMessageBuffer> umb =
       getUnackedMessageBuffer(sendRank, recvRank);
 

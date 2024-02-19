@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.18.2)
 project(faabric)
 
+#INCLUDE_DIRECTORIES($ENV{HOME}/local/include)
+INCLUDE_DIRECTORIES(stdtracer/include)
+
 option(FAABRIC_WASM_BUILD "Build Faabric wasm library" OFF)
 option(FAABRIC_BUILD_TESTS "Build Faabric tests" ON)
 option(FAABRIC_SELF_TRACING "Turn on system tracing using the logger" OFF)
@@ -150,6 +153,7 @@ target_link_libraries(faabric PUBLIC
 target_include_directories(faabric PUBLIC
     ${FAABRIC_INCLUDE_DIR}
     ${CMAKE_INSTALL_PREFIX}/include
+    $ENV{HOME}/local/include
 )
 
 # Ensure faabric generates readable stack traces
