@@ -157,6 +157,9 @@ int bench_allreduce()
     for (int i = 0; i < 10; ++i) {
         ret = bench_all_reduce(rank, worldSize, small_sizes());
     }
+    for (int i = 0; i < 10; ++i) {
+        ret = bench_all_reduce(rank, worldSize, resnet50_grad_sizes());
+    }
 
     MPI_Finalize();
 
