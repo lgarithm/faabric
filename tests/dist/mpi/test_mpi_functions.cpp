@@ -9,6 +9,20 @@
 
 namespace tests {
 
+TEST_CASE_METHOD(MpiDistTestsFixture, "Bench MPI all reduce", "[.][mpi]")
+{
+    // Set up this host's resources
+    setLocalSlots(4, 4); // all local
+    // setLocalSlots(2, 4); // 2 local, 2 remote
+
+    auto req = setRequest("bench-allreduce");
+
+    // Call the functions
+    plannerCli.callFunctions(req);
+
+    checkAllocationAndResult(req);
+}
+
 TEST_CASE_METHOD(MpiDistTestsFixture, "Test MPI all gather", "[mpi]")
 {
     // Set up this host's resources
