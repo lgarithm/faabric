@@ -24,7 +24,7 @@ constexpr int64_t Gi = 1 << 30;
 
 std::vector<int> small_sizes()
 {
-    std::vector<int> x(10000);
+    std::vector<int> x(1000);
     std::ranges::fill(x, 8);
     return x;
 }
@@ -93,9 +93,9 @@ void init_buf(std::vector<T>& x, std::vector<T>& y, T rank)
     std::ranges::fill(y, 0);
 }
 
-static int bench_all_reduce(int rank,
-                            int worldSize,
-                            std::vector<int> sizes = {})
+static int bench_allreduce(int rank,
+                           int worldSize,
+                           std::vector<int> sizes = {})
 {
     using T = int;
     auto dt = MPI_INT;
@@ -136,8 +136,14 @@ int bench_allreduce()
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &worldSize);
 
+    std::string name(__func__);
+    const char * p = std::getenv("EXP_NAME");
+    if (p) {
+        name += " ";
+        name += p;
+    }
     if (rank == 0) {
-        std::cerr << "BGN " << h40 << __func__ << h40 << std::endl;
+        std::fprintf(stderr, "%s %s %s %s\n", "BGN", h40.c_str(), name.c_str(), h40.c_str());
     }
 
     // SPDLOG_WARN("{}: {}/{}", __func__, rank, worldSize);
@@ -155,16 +161,16 @@ int bench_allreduce()
     // }
 
     for (int i = 0; i < 10; ++i) {
-        ret = bench_all_reduce(rank, worldSize, small_sizes());
+        ret = bench_allreduce(rank, worldSize, small_sizes());
     }
     for (int i = 0; i < 10; ++i) {
-        ret = bench_all_reduce(rank, worldSize, resnet50_grad_sizes());
+        ret = bench_allreduce(rank, worldSize, resnet50_grad_sizes());
     }
 
     MPI_Finalize();
 
     if (rank == 0) {
-        std::cerr << "END " << h40 << __func__ << h40 << std::endl;
+        std::fprintf(stderr, "%s %s %s %s\n", "END", h40.c_str(), name.c_str(), h40.c_str());
     }
     return ret;
 }
