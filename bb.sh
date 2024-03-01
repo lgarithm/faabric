@@ -61,7 +61,8 @@ bb() {
 }
 
 all() {
-    for id in $(cat ids.txt | awk '{print $1}'); do
+    local ids=$1
+    for id in $(cat $ids | awk '{print $1}'); do
         echo "commit: $id"
         bb "$id"
         echo "done for $id"
@@ -69,4 +70,4 @@ all() {
 }
 
 # bb "7483943ede55cb90394eedaa670ec169239eeb0c" # main
-all
+all ids.txt
