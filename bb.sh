@@ -2,10 +2,38 @@
 
 bench_base=bb
 
+cli_inv() { docker compose exec -it cli ./bin/inv_wrapper.sh $@; }
+
+bench_named() {
+    docker compose exec -it cli env EXP_NAME="$1" ./build/static/bin/faabric_dist_tests "$2"
+}
+
+bench() {
+    bench_named "local" "Bench MPI all reduce local" | grep grep bench_allreduce | tee 1.txt
+    bench_named "remote" "Bench MPI all reduce remote" | grep grep bench_allreduce | tee 2.txt
+}
+
+run() {
+    docker compose down
+    docker compose up --no-recreate -d cli
+    FAABRIC_DOCKER="on" ./bin/wait_for_venv.sh
+
+    cli_inv dev.cmake -b Release
+
+    cli_inv dev.cc faabric_dist_tests
+    cli_inv dev.cc faabric_dist_test_server
+    cli_inv dev.cc planner_server
+    ./dist-test/dev_server.sh
+
+    bench
+
+    # docker compose down
+}
+
 bb() {
-    local b=$1
-    echo "commit: $b"
-    d=$HOME/bench/$b/faabric
+    local commit=$1
+    echo "commit: $commit"
+    local d=$HOME/bench/$commit/faabric
     if [ ! -d "$d" ]; then
         git clone git@github.com:/faasm/faabric.git $d
     fi
@@ -16,11 +44,21 @@ bb() {
         git remote add lg git@github.com:lgarithm/faabric.git
     fi
     pwd
-    git checkout -f $b
+    git checkout -f $commit
     git fetch lg
     git merge lg/$bench_base --squash
     echo "merged"
+    git status
+    echo "building ..."
+    if [ -f result.log ]; then
+        echo "result exists"
+    fi
+
+    run
     # ./bin/cli.sh
+
+    echo "done"
 }
 
-bb "98947e7212c60ad2e9124377eac4c25d9b825770"
+# bb "7483943ede55cb90394eedaa670ec169239eeb0c" # main
+bb "8d10fa2051ff19cb141515296874d7d2bf2f3235"
