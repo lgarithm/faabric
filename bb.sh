@@ -9,8 +9,8 @@ bench_named() {
 }
 
 bench() {
-    bench_named "local" "Bench MPI all reduce local" | grep grep bench_allreduce | tee 1.txt
-    bench_named "remote" "Bench MPI all reduce remote" | grep grep bench_allreduce | tee 2.txt
+    bench_named "local" "Bench MPI all reduce local" | grep bench_allreduce | tee 1.txt
+    bench_named "remote" "Bench MPI all reduce remote" | grep bench_allreduce | tee 2.txt
 }
 
 run() {
@@ -60,5 +60,13 @@ bb() {
     echo "done"
 }
 
+all() {
+    for id in $(cat ids.txt | awk '{print $1}'); do
+        echo "commit: $id"
+        bb "$id"
+        echo "done for $id"
+    done
+}
+
 # bb "7483943ede55cb90394eedaa670ec169239eeb0c" # main
-bb "8d10fa2051ff19cb141515296874d7d2bf2f3235"
+all
