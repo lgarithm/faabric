@@ -4,9 +4,9 @@ down() {
     local commit=$1
     echo "commit: $commit"
     local d=bench/$commit/faabric
-    mkdir -p $commit
-    scp ko3:$d/1.txt "$commit/1.txt"
-    scp ko3:$d/2.txt "$commit/2.txt"
+    mkdir -p logs/$commit
+    scp ko3:$d/1.txt "logs/$commit/1.txt"
+    scp ko3:$d/2.txt "logs/$commit/2.txt"
 }
 
 cmt() {
@@ -19,11 +19,12 @@ body() {
 
     echo
     echo '```'
-    cat "$commit/1.txt"
+    cat "logs/$commit/1.txt"
     echo '```'
+    echo
 
     echo '```'
-    cat "$commit/2.txt"
+    cat "logs/$commit/2.txt"
     echo '```'
 }
 
@@ -31,7 +32,7 @@ f() {
     local commit=$1
     echo $commit
     down $commit
-    cmt $(body $commit)
+    cmt "$(body $commit)"
 }
 
 main() {

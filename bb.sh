@@ -46,23 +46,17 @@ bb() {
     pwd
     git checkout -f $commit
     git fetch lg
-    git merge lg/$bench_base --squash
+    git merge lg/$bench_base --squash --strategy-option ours
     echo "merged"
     git status
     echo "building ..."
-    if [ -f result.log ]; then
-        echo "result exists"
-    fi
-
     run
-    # ./bin/cli.sh
-
     echo "done"
 }
 
 all() {
     local ids=$1
-    for id in $(cat $ids | awk '{print $1}'); do
+    for id in $(cat $ids | awk '{print $1}' | grep -v '#'); do
         echo "commit: $id"
         bb "$id"
         echo "done for $id"
@@ -70,4 +64,6 @@ all() {
 }
 
 # bb "7483943ede55cb90394eedaa670ec169239eeb0c" # main
-all ids.txt
+# all ids.txt
+
+bb "578c079e9a24d838485544a7039845f18864a08a" # merge failed
