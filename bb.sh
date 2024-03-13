@@ -63,7 +63,8 @@ all() {
     done
 }
 
+# inv docker.build -c openmpi-worker
 # bb "7483943ede55cb90394eedaa670ec169239eeb0c" # main
-# all ids.txt
+all ids.txt
 
-bb "578c079e9a24d838485544a7039845f18864a08a" # merge failed
+# bb "578c079e9a24d838485544a7039845f18864a08a" # merge failed

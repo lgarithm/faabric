@@ -37,7 +37,7 @@ f() {
 
 main() {
     local ids=$1
-    for id in $(cat $ids | awk '{print $1}'); do
+    for id in $(cat $ids | awk '{print $1}' | grep -v '#'); do
         echo "commit: $id"
         f $id
         echo "done for $id"
