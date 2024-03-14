@@ -3,7 +3,6 @@ set -e
 
 list_ids() {
     local ids=$1
-    echo mpi
     cat $ids | awk '{print $1}' | grep -v '#'
 }
 

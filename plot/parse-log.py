@@ -56,7 +56,7 @@ def to_row(groups):
 def g(filename):
     # print(filename)
     groups = dict()
-    for line in open(filename).readlines():
+    for line in open(filename):
         # print(line)
         parts = line.strip().split()
         # print(parts)
@@ -94,14 +94,29 @@ def f(id):
     return cols + [id]
 
 
+
+def parse_ids(filename = 'ids.txt'):
+    id_names = []
+    for line in open(filename):
+        if line.startswith('#'):
+            continue
+        parts = line.strip().split()
+        id = parts[0]
+        name = parts[2]
+        id_names.append((id, name))
+    return dict(id_names)
+
+
+
 def add_ratio(rows):
+    names = parse_ids()
     row0, tail = rows[0], rows[1:]
     new_rows = []
     for row in tail:
         cols = []
         for x, b in zip(row, row0):
             if b == 'mpi':
-                cols.append(x)
+                cols.append(x + ' # ' + names[x])
             else:
                 x = float(x)
                 b = float(b)
@@ -112,6 +127,7 @@ def add_ratio(rows):
 
 
 def main(args):
+    args = ['mpi'] + args
     rows = []
     for id in args:
         cols = f(id)
