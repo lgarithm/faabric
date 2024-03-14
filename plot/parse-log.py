@@ -8,6 +8,7 @@ small = '384000B'
 large = '1.144GiB'
 keys = [small, large]
 
+
 def pad(s, n):
     return s + ' ' * max(0, n - len(s))
 
@@ -46,7 +47,7 @@ def to_row(groups):
     cols = []
     for k in keys:
         xs = np.array(groups[k])
-        cell = '%0.3f'  %(np.mean(xs))
+        cell = '%0.3f' % (np.mean(xs))
         cols.append(cell)
 
     return cols
@@ -71,11 +72,13 @@ def g(filename):
 
     return groups
 
+
 th = [
     'local/S', 'local/L',
     'remote/S', 'remote/L',
     'commit',
 ]
+
 
 def f(id):
     local = g(f'logs/{id}/1.txt')
@@ -90,12 +93,32 @@ def f(id):
     # show(remote, 'remote')
     return cols + [id]
 
+
+def add_ratio(rows):
+    row0, tail = rows[0], rows[1:]
+    new_rows = []
+    for row in tail:
+        cols = []
+        for x, b in zip(row, row0):
+            if b == 'mpi':
+                cols.append(x)
+            else:
+                x = float(x)
+                b = float(b)
+                cols.append('%.3f (%.2f)' % (x, x / b))
+        new_rows.append(cols)
+
+    return [row0] + new_rows
+
+
 def main(args):
-    rows = [th]
+    rows = []
     for id in args:
         cols = f(id)
         rows.append(cols)
-    show_table(rows)
+
+    # show_table([th] + rows)
+    show_table([th] + add_ratio(rows))
     # print(args)
 
 
