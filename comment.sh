@@ -10,7 +10,8 @@ down() {
 }
 
 cmt() {
-    gh pr comment 2 --body "$1" --repo https://github.com/lgarithm/faabric
+    # gh pr comment 2 --body "$1" --repo https://github.com/lgarithm/faabric
+    echo "$1" | tee -a comment.txt
 }
 
 body() {
