@@ -1,11 +1,12 @@
 #include <cstdio>  // snprintf
 #include <cstring> // memset
 
+#include "print_macros.hpp"
 #include "tcp.hpp"
 #include <arpa/inet.h>  // inet_pton, sockaddr_in
 #include <sys/socket.h> // sockaddr
 
-inline void unpack(uint32_t n, int& a, int& b, int& c, int& d)
+static void unpack(uint32_t n, int& a, int& b, int& c, int& d)
 {
     a = n >> 24;
     b = (n >> 16) & 0xff;
@@ -32,6 +33,11 @@ sockaddr* tcp_addr::get() const
     return (sockaddr*)&addr;
 }
 
-// tcp_addr::~tcp_addr()
-// {
-// }
+void show_addr(sockaddr_in a)
+{
+    int port = ntohs(a.sin_port);
+    PRN("port: %d", port);
+    char ip[16];
+    inet_ntop(AF_INET, &a.sin_addr, ip, sizeof(ip));
+    PRN("ip: %s", ip);
+}
