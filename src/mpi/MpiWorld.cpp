@@ -2,8 +2,10 @@
 #include <faabric/mpi/MpiMessage.h>
 #include <faabric/mpi/MpiWorld.h>
 #include <faabric/planner/PlannerClient.h>
-#include <faabric/transport/MessageEndpoint.h>
 #include <faabric/transport/macros.h>
+#include <faabric/transport/tcp/RecvSocket.h>
+#include <faabric/transport/tcp/SendSocket.h>
+#include <faabric/transport/tcp/SocketOptions.h>
 #include <faabric/util/ExecGraph.h>
 #include <faabric/util/batch.h>
 #include <faabric/util/environment.h>
@@ -32,8 +34,10 @@ std::vector<MpiMessage> getMpiMockedMessages(int sendRank)
     return mpiMockedMessages[sendRank];
 }
 
+/*
 static const MpiMessage MPI_SHUTDOWN_MESSAGE = { .messageType =
                                                    SHUTDOWN_WORLD };
+                                                   */
 
 // -----------------------------------
 // Thread-Local State
@@ -56,13 +60,14 @@ struct MpiRankState
     // ----- Remote Messaging -----
 
     // This structure contains one send socket per remote rank
-    std::vector<std::unique_ptr<faabric::transport::AsyncSendMessageEndpoint>>
+    std::vector<std::unique_ptr<faabric::transport::tcp::SendSocket>>
       sendSockets;
 
-    // This method and background thread are responsible to receiving messages
-    // from the network for this rank
-    std::unique_ptr<std::jthread> recvThread;
-    std::stop_source stopSource;
+    // We have one reception socket, and we multiplex connections to all
+    // remote ranks over this same socket. We keep track of both the socket,
+    // as well as the connection to each remote rank
+    std::unique_ptr<faabric::transport::tcp::RecvSocket> recvSocket;
+    std::vector<int> recvConnPool;
 
     void reset()
     {
@@ -84,8 +89,10 @@ struct MpiRankState
             unackedMessageBuffers.clear();
         }
 
-        // Send sockets (recv thread is cleared as part of separate call)
+        // TCP sockets
+        // TODO: does the order matter?
         sendSockets.clear();
+        recvSocket.reset();
 
         // Local message count
         msgCount = 1;
@@ -104,6 +111,7 @@ MpiWorld::MpiWorld()
   , broker(faabric::transport::getPointToPointBroker())
 {}
 
+/*
 int MpiWorld::getSendSocket(int sendRank, int recvRank)
 {
     // We want to lazily initialise this data structure because, given its
@@ -125,35 +133,20 @@ int MpiWorld::getSendSocket(int sendRank, int recvRank)
 
     return index;
 }
+*/
 
-void MpiWorld::sendRemoteMpiMessage(std::string dstHost,
-                                    int sendRank,
-                                    int recvRank,
-                                    const MpiMessage& msg)
+void MpiWorld::sendRemoteMpiMessage(int sendRank, int recvRank, MpiMessage& msg)
 {
-    // Serialise
-    // TODO(mpi-sock): expose a sendv like interface and avoid serialising here
-    std::vector<uint8_t> serialisedBuffer(msgSize(msg));
-    serializeMpiMsg(serialisedBuffer, msg);
+    std::vector<uint8_t*> buffers = { BYTES(&msg) };
+    std::vector<size_t> bufferSizes = { sizeof(MpiMessage) };
 
-    int index = getSendSocket(sendRank, recvRank);
-
-    try {
-        // TODO(mpi-sock): as we are bypassing the PTP layer we can null-out
-        // the header. We should consider using an MPI-only wire format
-        rankState.sendSockets.at(index)->send(
-          0,
-          reinterpret_cast<const uint8_t*>(serialisedBuffer.data()),
-          serialisedBuffer.size());
-    } catch (std::runtime_error& e) {
-        SPDLOG_ERROR("{}:{}:{} Timed out with: MPI - send {} -> {}",
-                     rankState.msg->appid(),
-                     rankState.msg->groupid(),
-                     rankState.msg->groupidx(),
-                     sendRank,
-                     recvRank);
-        throw e;
+    size_t payloadSz = payloadSize(msg);
+    if (payloadSz > 0 && msg.buffer != nullptr) {
+        buffers.push_back(BYTES(msg.buffer));
+        bufferSizes.push_back(payloadSz);
     }
+
+    rankState.sendSockets.at(recvRank)->sendMany(buffers, bufferSizes);
 }
 
 // This method lazily initialises the unacked message buffer's and returns
@@ -248,11 +241,11 @@ void MpiWorld::create(faabric::Message& call, int newId, int newSize)
     // should also be rank 0
     assert(localLeader == 0);
 
-    // Initialise the memory queues for message reception
+    // Initialise the memory queues for local messaging
     initLocalQueues();
 
-    // Finally, start the receiving thread for this rank
-    initRecvThread();
+    // Initialise the TCP sockets for remote messaging
+    initSendRecvSockets();
 }
 
 void MpiWorld::destroy()
@@ -261,10 +254,6 @@ void MpiWorld::destroy()
 
     // ----- Per-rank cleanup -----
 
-    // First, stop the thread-local network-polling thread
-    stopRecvThread();
-
-    // Now we can safely reset all other thread-local structures
     rankState.reset();
 
     // Clear structures used for mocking
@@ -288,16 +277,16 @@ void MpiWorld::initialiseFromMsg(faabric::Message& msg)
     // Initialise the memory queues for message reception
     initLocalQueues();
 
-    // Initialise the receiver thread
-    initRecvThread();
+    // Initialise the TCP sockets for remote messaging
+    initSendRecvSockets();
 }
 
 void MpiWorld::setMsgForRank(faabric::Message& msg)
 {
     rankState.msg = &msg;
 
-    // Initialise the receiver thread for this rank
-    initRecvThread();
+    // Initialise the TCP sockets for remote messaging
+    initSendRecvSockets();
 }
 
 std::string MpiWorld::getHostForRank(int rank)
@@ -641,7 +630,7 @@ void MpiWorld::send(int sendRank,
 
         SPDLOG_TRACE(
           "MPI - send remote {} -> {} ({})", sendRank, recvRank, messageType);
-        sendRemoteMpiMessage(otherHost, sendRank, recvRank, msg);
+        sendRemoteMpiMessage(sendRank, recvRank, msg);
     }
 
     /* 02/05/2022 - The following bit of code fails randomly with a protobuf
@@ -663,6 +652,35 @@ void MpiWorld::send(int sendRank,
     */
 }
 
+MpiMessage MpiWorld::recvRemoteMpiMessage(int sendRank, int recvRank)
+{
+    int conn = rankState.recvConnPool.at(sendRank);
+
+    // Receive header
+    MpiMessage msg;
+    rankState.recvSocket->recvOne(conn, BYTES(&msg), sizeof(MpiMessage));
+
+    // Decide if we need to recv again for the payload
+    size_t payloadSz = payloadSize(msg);
+    if (payloadSz > 0) {
+        msg.buffer = faabric::util::malloc(payloadSz);
+        rankState.recvSocket->recvOne(conn, BYTES(msg.buffer), payloadSz);
+    }
+
+    return msg;
+}
+
+MpiMessage MpiWorld::internalRecv(int sendRank, int recvRank, bool isLocal)
+{
+    if (isLocal) {
+        SPDLOG_TRACE("MPI - recv {} -> {}", sendRank, recvRank);
+        return getLocalQueue(sendRank, recvRank)->dequeue();
+    }
+
+    SPDLOG_TRACE("MPI - recv remote {} -> {}", sendRank, recvRank);
+    return recvRemoteMpiMessage(sendRank, recvRank);
+}
+
 void MpiWorld::recv(int sendRank,
                     int recvRank,
                     uint8_t* buffer,
@@ -675,9 +693,11 @@ void MpiWorld::recv(int sendRank,
     checkRanksRange(sendRank, recvRank);
 
     // If mocking the messages, ignore calls to receive that may block
+#ifndef NDEBUG
     if (faabric::util::isMockMode()) {
         return;
     }
+#endif
 
     // Given that we share the same in-memory queues for async and non-async
     // messages, when we call MPI_Recv and dequeue from the queue, we will
@@ -688,7 +708,7 @@ void MpiWorld::recv(int sendRank,
     doRecv(std::move(msg), buffer, dataType, count, status, messageType);
 }
 
-void MpiWorld::doRecv(const MpiMessage& m,
+void MpiWorld::doRecv(const MpiMessage& msg,
                       uint8_t* buffer,
                       faabric_datatype_t* dataType,
                       int count,
@@ -697,33 +717,33 @@ void MpiWorld::doRecv(const MpiMessage& m,
 {
     // Assert message integrity
     // Note - this checks won't happen in Release builds
-    if (m.messageType != messageType) {
+    if (msg.messageType != messageType) {
         SPDLOG_ERROR("Different message types (got: {}, expected: {})",
-                     m.messageType,
+                     msg.messageType,
                      messageType);
     }
-    assert(m.messageType == messageType);
-    assert(m.count <= count);
+    assert(msg.messageType == messageType);
+    assert(msg.count <= count);
 
     // We must copy the data into the application-provided buffer
-    if (m.count > 0 && m.buffer != nullptr) {
+    if (msg.count > 0 && msg.buffer != nullptr) {
         // Make sure we do not overflow the recepient buffer
         auto bytesToCopy =
-          std::min<size_t>(m.count * dataType->size, count * dataType->size);
-        std::memcpy(buffer, m.buffer, bytesToCopy);
+          std::min<size_t>(msg.count * dataType->size, count * dataType->size);
+        std::memcpy(buffer, msg.buffer, bytesToCopy);
 
         // This buffer has been malloc-ed either as part of a local `send`
         // or as part of a remote `parseMpiMsg`
-        faabric::util::free((void*)m.buffer);
+        faabric::util::free((void*)msg.buffer);
     }
 
     // Set status values if required
     if (status != nullptr) {
-        status->MPI_SOURCE = m.sendRank;
+        status->MPI_SOURCE = msg.sendRank;
         status->MPI_ERROR = MPI_SUCCESS;
 
         // Take the message size here as the receive count may be larger
-        status->bytesSize = m.count * dataType->size;
+        status->bytesSize = msg.count * dataType->size;
 
         // TODO - thread through tag
         status->MPI_TAG = -1;
@@ -1764,81 +1784,86 @@ std::shared_ptr<InMemoryMpiQueue> MpiWorld::getLocalQueue(int sendRank,
     return localQueues[getIndexForRanks(sendRank, recvRank)];
 }
 
-void MpiWorld::initRecvThread()
+// TODO: re-purpose this method to accept connections from all non-remote ranks
+// We follow a very simple protocol to coordinate the esablishment of
+// connections between ranks. Each rank iterates over all ranks, and for each
+// non-local rank,
+void MpiWorld::initSendRecvSockets()
 {
+    if (rankState.recvSocket != nullptr) {
+        assert(rankState.sendSockets.size() == size);
+        return;
+    }
+
     assert(rankState.msg != nullptr);
     int thisRank = rankState.msg->groupidx();
     int thisPort = getPortForRank(thisRank);
 
-    // This method is called twice from remote local leaders (once as part of
-    // initialiseFromMsg, and another one from setMsgForRank) as a consequence
-    // we skip initialisation if the thread is already initialised
-    if (rankState.recvThread != nullptr) {
-        return;
+    // First, initialise an (empty) array of send sockets that will CONNECT
+    // to remote sockets, and one receive socket that will LISTEN from multiple
+    // connections
+    rankState.sendSockets =
+      std::vector<std::unique_ptr<faabric::transport::tcp::SendSocket>>(size);
+    rankState.recvSocket =
+      std::make_unique<faabric::transport::tcp::RecvSocket>(thisPort);
+    rankState.recvConnPool = std::vector<int>(size, 0);
+    rankState.recvSocket->listen();
+
+    // Do the handshake between sending and receiving sockets
+    for (int otherRank = 0; otherRank < size; otherRank++) {
+        if (otherRank == thisRank) {
+            continue;
+        }
+
+        if (getHostForRank(otherRank) == thisHost) {
+            continue;
+        }
+
+        std::string otherHost = getHostForRank(otherRank);
+        int otherPort = getPortForRank(otherRank);
+
+        if (thisRank < otherRank) {
+            // If we are a smaller rank, we first CONNECT (i.e. open a socket
+            // and send a test message)
+            rankState.sendSockets.at(otherRank) =
+              std::make_unique<faabric::transport::tcp::SendSocket>(otherHost,
+                                                                    otherPort);
+
+            rankState.sendSockets.at(otherRank)->dial();
+
+            MpiMessage msg = {
+                .sendRank = thisRank,
+                .recvRank = otherRank,
+                .messageType = MpiMessageType::HANDSHAKE,
+                .buffer = nullptr,
+            };
+            sendRemoteMpiMessage(thisRank, otherRank, msg);
+            if (msg.messageType != MpiMessageType::HANDSHAKE) {
+                SPDLOG_ERROR("MPI failed shaking hands {} -> {} (CONNECT)",
+                             otherRank,
+                             thisRank);
+                throw std::runtime_error("MPI failed during handshake");
+            }
+        } else {
+            // If we are a larger rank, we ACCEPT the connection from the
+            // smaller rank
+            rankState.recvConnPool.at(otherRank) =
+              rankState.recvSocket->accept();
+
+            // Do handshake
+            MpiMessage msg = recvRemoteMpiMessage(otherRank, thisRank);
+            if (msg.messageType != MpiMessageType::HANDSHAKE) {
+                SPDLOG_ERROR("MPI failed shaking hands {} -> {} (ACCEPT)",
+                             otherRank,
+                             thisRank);
+                throw std::runtime_error("MPI failed during handshake");
+            }
+        }
     }
-
-    rankState.recvThread =
-      std::make_unique<std::jthread>([this, thisRank, thisPort]() {
-          // Variable is only used in debug builds, so mark it here to avoid
-          // compiler warnigns
-          (void)thisRank;
-
-          SPDLOG_DEBUG(
-            "MPI - Initialising BG receiver thread for rank {} (port: {})",
-            thisRank,
-            thisPort);
-
-          faabric::transport::AsyncRecvMessageEndpoint recvSocket(thisPort);
-          auto stopToken = rankState.stopSource.get_token();
-
-          while (!stopToken.stop_requested()) {
-              auto msg = recvSocket.recv();
-
-              // On timeout we listen again
-              if (msg.getResponseCode() ==
-                  faabric::transport::MessageResponseCode::TIMEOUT) {
-                  continue;
-              }
-
-              // TODO: can we avoid this copy here?
-              MpiMessage parsedMsg;
-              parseMpiMsg(msg.dataCopy(), &parsedMsg);
-
-              if (parsedMsg.messageType == SHUTDOWN_WORLD) {
-                  break;
-              }
-
-              getLocalQueue(parsedMsg.sendRank, parsedMsg.recvRank)
-                ->enqueue(parsedMsg);
-          }
-
-          SPDLOG_DEBUG(
-            "MPI - Shutting down BG receiver thread for rank {} (port: {})",
-            thisRank,
-            thisPort);
-      });
-}
-
-void MpiWorld::stopRecvThread()
-{
-    if (rankState.recvThread == nullptr) {
-        return;
-    }
-
-    // To properly shut down our receiver TCP socket, we request stopping the
-    // jthread, and then send an empty (shutdown) message to ourselves
-    rankState.stopSource.request_stop();
-    sendRemoteMpiMessage(thisHost,
-                         rankState.msg->mpirank(),
-                         rankState.msg->mpirank(),
-                         MPI_SHUTDOWN_MESSAGE);
-
-    rankState.recvThread->join();
-    rankState.recvThread.reset();
 }
 
 // We pre-allocate all _potentially_ necessary queues in advance. Queues are
-// necessary to _receive_ messages, thus we initialise all queues whose
+// necessary to _receive_ local messages, thus we initialise all queues whose
 // corresponding receiver is local to this host, for any sender
 void MpiWorld::initLocalQueues()
 {
@@ -1973,6 +1998,7 @@ void MpiWorld::overrideHost(const std::string& newHost)
 
 void MpiWorld::checkRanksRange(int sendRank, int recvRank)
 {
+#ifndef NDEBUG
     if (sendRank < 0 || sendRank >= size) {
         SPDLOG_ERROR(
           "Send rank outside range: {} not in [0, {})", sendRank, size);
@@ -1983,6 +2009,9 @@ void MpiWorld::checkRanksRange(int sendRank, int recvRank)
           "Recv rank outside range: {} not in [0, {})", recvRank, size);
         throw std::runtime_error("Recv rank outside range");
     }
+#else
+    ;
+#endif
 }
 
 void MpiWorld::prepareMigration(int thisRank, bool thisRankMustMigrate)
@@ -2003,14 +2032,10 @@ void MpiWorld::prepareMigration(int thisRank, bool thisRankMustMigrate)
         itr++;
     }
 
-    // If our (this rank) is being migrated, stop the receiver thread
-    if (thisRankMustMigrate) {
-        stopRecvThread();
-    }
-
     // Clear our TLS sockets to force lazy-initialising them after migration
     // so that we pick up the right ranks for the remote ranks
     rankState.sendSockets.clear();
+    rankState.recvSocket.reset();
 
     // Update local records
     if (thisRank == localLeader) {

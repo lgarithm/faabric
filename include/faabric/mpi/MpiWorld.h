@@ -235,19 +235,16 @@ class MpiWorld
     // Remote messaging using the PTP layer for control-plane
     faabric::transport::PointToPointBroker& broker;
 
-    // Receiver and sender sockets for data plane
-    void initRecvThread();
-
-    void stopRecvThread();
+    // TCP sockets for remote messaging
+    void initSendRecvSockets();
 
     int getPortForRank(int rank);
 
     int getSendSocket(int sendRank, int recvRank);
 
-    void sendRemoteMpiMessage(std::string dstHost,
-                              int sendRank,
-                              int recvRank,
-                              const MpiMessage& msg);
+    void sendRemoteMpiMessage(int sendRank, int recvRank, MpiMessage& msg);
+
+    MpiMessage recvRemoteMpiMessage(int sendRank, int recvRank);
 
     // Support for asyncrhonous communications
     int getUnackedMessageBuffer(int sendRank, int recvRank);
@@ -260,17 +257,10 @@ class MpiWorld
 
     void checkRanksRange(int sendRank, int recvRank);
 
-    // Abstraction of the bulk of the recv work, shared among various functions
-    void doRecv(const MpiMessage& m,
-                uint8_t* buffer,
-                faabric_datatype_t* dataType,
-                int count,
-                MPI_Status* status,
-                MpiMessageType messageType = MpiMessageType::NORMAL);
+    MpiMessage internalRecv(int sendRank, int recvRank, bool isLocal);
 
     // Abstraction of the bulk of the recv work, shared among various functions
-    // TODO: can we remove this?
-    void doRecv(std::unique_ptr<MpiMessage> m,
+    void doRecv(const MpiMessage& msg,
                 uint8_t* buffer,
                 faabric_datatype_t* dataType,
                 int count,

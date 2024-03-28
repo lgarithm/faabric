@@ -921,6 +921,7 @@ void PointToPointBroker::postMigrationHook(int groupId, int groupIdx)
                      recvCode);
         throw std::runtime_error("Error in post-migration hook");
     }
+    // Probably everybody should initialise MPI send/recv TCP sockets here
 
     SPDLOG_DEBUG("{}:{} exiting post-migration hook", groupId, groupIdx);
 }
