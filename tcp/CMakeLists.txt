@@ -12,8 +12,16 @@ FILE(GLOB_RECURSE SRCS ${CMAKE_SOURCE_DIR}/../src/mpi/tcp/*)
 
 ADD_LIBRARY(mpi-tcp ${SRCS})
 
-ADD_EXECUTABLE(tcp-endpoint ${CMAKE_SOURCE_DIR}/examples/tcp-endpoint.cpp)
-TARGET_LINK_LIBRARIES(tcp-endpoint mpi-tcp)
+FUNCTION(ADD_EXAMPLE src)
+    GET_FILENAME_COMPONENT(target ${src} NAME_WE)
+    STRING(REPLACE "_" "-" target ${target})
+    ADD_EXECUTABLE(${target} ${src})
+    TARGET_LINK_LIBRARIES(${target} ${LIB_NAME})
+    TARGET_LINK_LIBRARIES(${target} mpi-tcp)
+ENDFUNCTION()
+
+ADD_EXAMPLE(${CMAKE_SOURCE_DIR}/examples/tcp-endpoint.cpp)
+# ADD_EXAMPLE(${CMAKE_SOURCE_DIR}/examples/dist-worker.cpp)
 
 # INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/../src)
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include)
