@@ -10,4 +10,5 @@ with_cd() {
 }
 
 cxx-fix ./src/mpi/tcp tcp/examples
+rm -fr unknown.set
 with_cd tcp ./x
