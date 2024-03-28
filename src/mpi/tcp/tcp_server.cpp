@@ -1,81 +1,94 @@
-#include <cstdio> // perror
+#include <memory>    // make_unique
+#include <stdexcept> // runtime_error
+#include <thread>    // this_thread
+#include <utility>   // move
 
-#include <memory> // make_unique, unique_ptr
+#include <arpa/inet.h> // sockaddr_in
+#include <log.hpp>
+#include <print_macros.hpp>
+#include <socket_opt.h>
+#include <sys/socket.h> // bind, listen, sockaddr
+#include <tcp.hpp>
 
-#include "print_macros.hpp"
-#include "tcp.hpp"
-#include <arpa/inet.h>  // sockaddr_in
-#include <sys/socket.h> // bind, listen, recv
-#include <unistd.h>     // close
-
-void handle_conn(std::unique_ptr<tcp_socket> conn)
+bool would_block()
 {
-    int fd = conn->get();
-    PRN("%s: %d", __func__, fd);
-    char data[1 << 20];
-    int limit = sizeof(data);
-    for (;;) {
-        int n = recv(fd, data, limit, 0);
-        PRN("got %d/%d", n, limit);
-        if (n == 0) {
-            break;
-        }
-    }
+    return errno == EAGAIN;
 }
 
 tcp_server::tcp_server(int port, int host)
-  : addr(port, host)
-  , stopped(false)
-  , handling(0)
-  , sock(&stopped)
-{}
-
-void tcp_server::serve(tcp_handler f)
+    : addr(port, host), stopped(false), handling(0), sock(&stopped)
 {
-    int fd = sock.get();
-    if (int ret = bind(fd, addr.get(), sizeof(sockaddr_in)); ret) {
-        std::perror("bind failed");
-        return;
-    }
-    if (int code = listen(fd, 1024); code) {
-        std::perror("listen failed");
-        return;
-    }
-    // for (; !stopped;) {
-    //     sockaddr_in remote;
-    //     socklen_t addr_len;
-    //     if (int conn = accept(fd, (sockaddr *)&remote, &addr_len); conn > 0)
-    //     {
-    //         PRN("accept: %d, addr_len: %d", conn, addr_len);
-    //         show_addr(remote);
-    //         f(conn);
-    //         PRN("handled: %d", conn);
-    //     } else {
-    //         std::perror("accept failed");
-    //         break;
-    //     }
-    // }
+}
 
+void tcp_server::listen_loop(tcp_handler handle)
+{
+    LOG_SCOPE_F("BGN %s", __func__);
+    int fd = sock.get();
+    int nc = 0;
     for (; !stopped;) {
-        if (int conn = accept(fd, nullptr, nullptr); conn > 0) {
-            PRN("accept: %d", conn);
-            f(std::make_unique<tcp_socket>(conn));
-            // [&]() {
-            //     ++handling;
-            //     f(conn);
-            //     --handling;
-            // }();
-            PRN("handled: %d", conn);
+        sockaddr_in remote;
+        socklen_t addr_len;
+        if (int conn = accept(fd, (sockaddr *)&remote, &addr_len); conn > 0) {
+            ++nc;
+            if (false) {
+                show_addr(remote, addr_len);
+            }
+            // n - 1 at most ideally
+            LOG_IF(false,
+                   "accept: %d, is_non_blocking: %d",
+                   conn,
+                   is_non_blocking(conn));
+            set_non_blocking(conn);
+
+            auto sock = std::make_unique<tcp_socket>(conn);
+            // LOG("will handle: %d", sock->get());
+            handle(std::move(sock));
+
         } else {
-            std::perror("accept failed");
-            break;
+            if (!would_block()) {
+                PERR("accept(%d, ...): ", fd);
+            }
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1ms);
+            // break;
         }
     }
 }
 
-void tcp_server::start()
+void tcp_server::polling_loop(polling_handler handle)
 {
-    serve(handle_conn);
+    int fd = start_listening();
+    handle(stopped, fd);
+}
+
+void tcp_server::serve(tcp_handler f)
+{
+    start_listening();
+    listen_loop(f);
+}
+
+int tcp_server::start_listening()
+{
+    int fd = sock.get();
+    reuse_addr(fd);
+    if (!is_non_blocking(fd)) {
+        // LOG("server: %d was not non_blocking", fd);
+        set_non_blocking(fd);
+    }
+    if (int ret = bind(fd, addr.get(), sizeof(sockaddr_in)); ret) {
+        PERR("bind(%d, ...): ", fd);
+        if (errno == EADDRINUSE) { // linux: 98, osx: 48
+            ERR("TODO: %s", "check port usage");
+        }
+        throw std::runtime_error(__func__);
+        // return -1;
+    }
+    if (int ret = listen(fd, 1024); ret) {
+        PERR("listen(%d, ...): ", fd);
+        throw std::runtime_error(__func__);
+        // return -1;
+    }
+    return fd;
 }
 
 void tcp_server::stop()

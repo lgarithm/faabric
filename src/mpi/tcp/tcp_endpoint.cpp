@@ -5,7 +5,7 @@
 void run_srv(int port, int host = 0)
 {
     tcp_server s(port, host);
-    s.start();
+    // s.start();
 }
 
 void run_cli(int port, int host = 0)
