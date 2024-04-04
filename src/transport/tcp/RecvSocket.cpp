@@ -40,7 +40,7 @@ void RecvSocket::listen()
 int RecvSocket::accept()
 {
     int conn = ::accept(sock.get(), 0, 0);
-    setBlocking(conn);
+    // setBlocking(conn);
 
     return conn;
 }
@@ -62,7 +62,7 @@ void RecvSocket::recvOne(int conn, uint8_t* buffer, size_t bufferSize)
             }
 
             // TODO: ??
-            SPDLOG_ERROR("not expected: {}", std::strerror(errno));
+            // SPDLOG_ERROR("not expected: {}", std::strerror(errno));
         } else {
             buffer += got;
             numRecvd += got;
