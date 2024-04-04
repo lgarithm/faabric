@@ -61,7 +61,7 @@ def g(filename):
         parts = line.strip().split()
         # print(parts)
         # if len(parts)  =
-        if parts[0].startswith('bench_allreduce'):
+        if parts[0].startswith('bench_allreduce') and len(parts) > 3:
             # print(parts)
             w = parts[5].replace(',', '')
             x = float(parts[7].replace(unit, ''))
