@@ -13,6 +13,11 @@ bench() {
     bench_named "remote" "Bench MPI all reduce remote" | grep bench_allreduce | tee 2.txt
 }
 
+setup() {
+    cli_inv apt update
+    cli_inv apt update apt install -y linux-tools-common linux-tools-generic linux-tools-5.15.0-91-generic
+}
+
 run() {
     docker compose down
     docker compose up --no-recreate -d cli
@@ -50,6 +55,7 @@ bb() {
     echo "merged"
     git status
     echo "building ..."
+    setup
     run
     echo "done"
 }
