@@ -3,7 +3,7 @@
 
 #include <fcntl.h>
 #include <netinet/in.h>  // IPPROTO_TCP
-#include <netinet/tcp.h> // TCP_NODELAY
+#include <netinet/tcp.h> // TCP_NODELAY, TCP_QUICKACK
 #include <sys/socket.h>
 
 namespace faabric::transport::tcp {
@@ -24,17 +24,16 @@ void noDelay(int connFd)
     int opt = 1;
     int ret = setsockopt(connFd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
     if (ret < 0) {
-        SPDLOG_ERROR("setsockopt(SO_REUSEADDR) failed on fd: {}", connFd);
+        SPDLOG_ERROR("setsockopt(TCP_NODELAY) failed on fd: {}", connFd);
     }
 }
 
 void quickAck(int connFd)
 {
     int opt = 1;
-    int ret =
-      setsockopt(connFd, IPPROTO_TCP, TCP_QUICKACK, &opt, sizeof(opt)) < 0;
+    int ret = setsockopt(connFd, IPPROTO_TCP, TCP_QUICKACK, &opt, sizeof(opt));
     if (ret < 0) {
-        perror("setsockopt(TCP_QUICKACK)");
+        SPDLOG_ERROR("setsockopt(TCP_QUICKACK) failed on fd: {}", connFd);
     }
 }
 
