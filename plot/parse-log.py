@@ -101,9 +101,10 @@ def parse_ids(filename = 'ids.txt'):
         if line.startswith('#'):
             continue
         parts = line.strip().split()
-        id = parts[0]
-        name = parts[2]
-        id_names.append((id, name))
+        if len(parts) > 2:
+            id = parts[0]
+            name = parts[2]
+            id_names.append((id, name))
     return dict(id_names)
 
 
