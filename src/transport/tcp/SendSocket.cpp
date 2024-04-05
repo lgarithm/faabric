@@ -1,8 +1,9 @@
+#include <arpa/inet.h>
 #include <faabric/transport/tcp/SendSocket.h>
+#include <faabric/transport/tcp/SocketOptions.h>
 #include <faabric/util/logging.h>
 #include <faabric/util/macros.h>
 
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -22,6 +23,8 @@ void SendSocket::dial()
     }
 
     int connFd = sock.get();
+    noDelay(connFd);
+    quickAck(connFd);
 
     // Re-dial a number of times to accoun for races during initialisation
     int numRetries = 20;
