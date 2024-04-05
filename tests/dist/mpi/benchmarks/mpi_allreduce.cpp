@@ -85,7 +85,6 @@ int bench_allreduce()
         name += p;
     }
 
-    const std::string payload_size = safe_get_env("PAYLOAD");
     int ret = 0;
     PRN_IF(rank == 0, "BGN %s %s %s", S(h40), S(name), S(h40));
     if (both || only_small) {
