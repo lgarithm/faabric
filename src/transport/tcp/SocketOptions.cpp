@@ -2,7 +2,8 @@
 #include <faabric/util/logging.h>
 
 #include <fcntl.h>
-#include <netinet/in.h> // IPPROTO_TCP
+#include <netinet/in.h>  // IPPROTO_TCP
+#include <netinet/tcp.h> // TCP_NODELAY
 #include <sys/socket.h>
 
 namespace faabric::transport::tcp {
