@@ -2,6 +2,7 @@
 #include <faabric/util/logging.h>
 
 #include <fcntl.h>
+#include <netinet/in.h> // IPPROTO_TCP
 #include <sys/socket.h>
 
 namespace faabric::transport::tcp {
