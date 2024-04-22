@@ -1,0 +1,22 @@
+BGN ======================================== bench_allreduce remote ========================================
+bench_allreduce(np=4) took 0.0304s, total workload: 384000B, rate: 0.012GiB/s
+bench_allreduce(np=4) took 0.0187s, total workload: 384000B, rate: 0.019GiB/s
+bench_allreduce(np=4) took 0.0160s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.0160s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.0162s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.0161s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.0164s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.0185s, total workload: 384000B, rate: 0.019GiB/s
+bench_allreduce(np=4) took 0.0167s, total workload: 384000B, rate: 0.021GiB/s
+bench_allreduce(np=4) took 0.0165s, total workload: 384000B, rate: 0.022GiB/s
+bench_allreduce(np=4) took 0.1663s, total workload: 1.144GiB, rate: 6.877GiB/s
+bench_allreduce(np=4) took 0.1554s, total workload: 1.144GiB, rate: 7.362GiB/s
+bench_allreduce(np=4) took 0.1777s, total workload: 1.144GiB, rate: 6.436GiB/s
+bench_allreduce(np=4) took 0.1231s, total workload: 1.144GiB, rate: 9.289GiB/s
+bench_allreduce(np=4) took 0.1252s, total workload: 1.144GiB, rate: 9.136GiB/s
+bench_allreduce(np=4) took 0.1198s, total workload: 1.144GiB, rate: 9.543GiB/s
+bench_allreduce(np=4) took 0.1198s, total workload: 1.144GiB, rate: 9.549GiB/s
+bench_allreduce(np=4) took 0.1191s, total workload: 1.144GiB, rate: 9.603GiB/s
+bench_allreduce(np=4) took 0.1217s, total workload: 1.144GiB, rate: 9.400GiB/s
+bench_allreduce(np=4) took 0.1209s, total workload: 1.144GiB, rate: 9.459GiB/s
+END ======================================== bench_allreduce remote ========================================

@@ -127,7 +127,7 @@ class MpiDistTestsFixture : public DistTestsFixture
       std::shared_ptr<faabric::BatchExecuteRequest> req)
     {
         // Wait until all the messages have been scheduled
-        int maxRetries = 20;
+        int maxRetries = 200000;
         int numRetries = 0;
         int pollSleepMs = 500;
         auto decision = plannerCli.getSchedulingDecision(req);

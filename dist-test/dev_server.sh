@@ -8,6 +8,7 @@ pushd ${PROJ_ROOT} > /dev/null
 export OVERRIDE_CPU_COUNT=4
 
 if [[ -z "$1" ]]; then
+    #docker compose up -d dist-test-server openmpi-worker --scale openmpi-worker=2
     docker compose up -d dist-test-server
 elif [[ "$1" == "restart" ]]; then
     docker compose restart dist-test-server
